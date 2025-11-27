@@ -44,3 +44,7 @@ coverage/
 *.temp
 .cache/
 
+# Other project folders (if not needed)
+MuseumChat/
+MuseumWechat/
+
