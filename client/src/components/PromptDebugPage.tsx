@@ -59,7 +59,7 @@ export const PromptDebugPage: React.FC<PromptDebugPageProps> = ({ config, onBack
   };
 
   const handleSendMessage = async () => {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || adjustingPrompt) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -290,7 +290,8 @@ ${prompts.guide}
         <div className="p-4 border-t border-gray-200">
           <button
             onClick={handleComplete}
-            className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+            disabled={adjustingPrompt}
+            className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isLastRole ? '完成并下载文档' : `完成${ROLE_NAMES[currentRole]}，进入下一个`}
           </button>
@@ -307,7 +308,8 @@ ${prompts.guide}
             </h1>
             <button
               onClick={onBack}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              disabled={adjustingPrompt}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               返回
             </button>
@@ -377,11 +379,11 @@ ${prompts.guide}
               onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
               placeholder="输入你的消息..."
               className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              disabled={loading}
+              disabled={loading || adjustingPrompt}
             />
             <button
               onClick={handleSendMessage}
-              disabled={loading || !input.trim()}
+              disabled={loading || adjustingPrompt || !input.trim()}
               className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
             >
               发送
