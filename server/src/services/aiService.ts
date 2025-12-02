@@ -64,20 +64,27 @@ export class AIService {
     history: Message[],
     artifactContext: string,
     rolePrompt: string,
-    model: string
+    model: string,
+    userInfo?: { name?: string; [key: string]: any }
   ): Promise<string> {
-    // 只保留最近的对话历史，避免上下文过长
-    const recentHistory = history.slice(-6);
+    // 增加历史消息数量，保留更多上下文（从6条增加到12条）
+    const recentHistory = history.slice(-12);
+    
+    // 构建用户信息提示
+    let userInfoPrompt = '';
+    if (userInfo?.name) {
+      userInfoPrompt = `\n重要：用户的名字是"${userInfo.name}"，请在对话中自然地使用这个名字称呼用户。`;
+    }
     
     const systemPrompt = `${rolePrompt}
 
 当前文物的历史背景：
 ${artifactContext}
-
+${userInfoPrompt}
 ${recentHistory.length > 0 ? `最近的对话历史：
 ${recentHistory.map(m => `${m.role === 'user' ? '用户' : m.role === 'artifact' ? '文物' : m.role === 'author' ? '作者' : '导览员'}: ${m.content}`).join('\n')}` : ''}
 
-请以${role === 'artifact' ? '文物本身' : role === 'author' ? '文物的作者' : '导览员'}的身份，用中文自然、简洁地回复用户的问题。记住：回复要简短（50-100字），要像真实对话一样自然。`;
+请以${role === 'artifact' ? '文物本身' : role === 'author' ? '文物的作者' : '导览员'}的身份，用中文自然、简洁地回复用户的问题。记住：回复要简短（50-100字），要像真实对话一样自然。如果知道用户的名字，可以自然地使用。`;
 
     const messages: Message[] = [
       ...recentHistory,

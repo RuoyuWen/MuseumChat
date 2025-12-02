@@ -9,7 +9,7 @@ export class ChatManager {
   }
 
   async processMessage(request: ChatRequest): Promise<ChatResponse> {
-    const { message, history, artifactContext, model, prompts } = request;
+    const { message, history, artifactContext, model, prompts, userInfo } = request;
 
     // 初始化AI服务
     this.aiService.initialize(request.apiKey);
@@ -78,7 +78,8 @@ export class ChatManager {
           history,
           artifactContext,
           rolePrompt,
-          model
+          model,
+          userInfo // 传递用户信息
         );
 
         return {
@@ -130,7 +131,8 @@ export class ChatManager {
       newMessages,
       artifactContext,
       model,
-      request.apiKey
+      request.apiKey,
+      userInfo
     ).catch(error => {
       console.error('Error generating suggested questions:', error);
       return [];
@@ -171,7 +173,8 @@ export class ChatManager {
     history: Message[],
     artifactContext: string,
     model: string,
-    apiKey: string
+    apiKey: string,
+    userInfo?: { name?: string; [key: string]: any }
   ): Promise<string[]> {
     this.aiService.initialize(apiKey);
 
@@ -180,8 +183,10 @@ export class ChatManager {
       .map(m => `${m.role === 'user' ? '用户' : m.role === 'artifact' ? '文物' : m.role === 'author' ? '作者' : '导览员'}: ${m.content}`)
       .join('\n');
 
-    const prompt = `你是一个博物馆导览助手。根据当前的对话内容，生成3-4个用户可能感兴趣的问题。
+    const userInfoString = userInfo?.name ? `用户名字：${userInfo.name}\n` : '';
 
+    const prompt = `你是一个博物馆导览助手。根据当前的对话内容，生成3-4个用户可能感兴趣的问题。
+${userInfoString}
 当前对话：
 ${conversationContext}
 
@@ -240,42 +245,48 @@ ${conversationContext}
     model: string,
     apiKey: string,
     allSelectedRoles?: string[],
-    currentRoleIndex?: number
+    currentRoleIndex?: number,
+    preGeneratedResponse?: Message,
+    userInfo?: { name?: string; [key: string]: any }
   ): Promise<{ message: Message; shouldContinue: boolean; nextRole?: 'artifact' | 'author' | 'guide'; suggestedQuestions?: string[] }> {
     this.aiService.initialize(apiKey);
 
-    // 找到当前角色在对话中的上下文，让回复更自然
-    const recentMessages = history.slice(-4);
-    const roleName = role === 'artifact' ? '文物本身' : role === 'author' ? '文物的作者' : '导览员';
-    
-    // 构建继续提示，让角色基于之前的对话自然地补充
-    const continuePrompt = `请以${roleName}的身份，基于刚才的对话自然地补充你的观点或信息。记住：用中文回复，保持简洁（50-100字），要自然真实，像在群聊中讨论一样。`;
-
     let message: Message;
-    try {
-      const response = await this.aiService.chatAsRole(
-        role,
-        continuePrompt,
-        history,
-        artifactContext,
-        rolePrompt,
-        model
-      );
 
-      message = {
-        id: Date.now().toString(),
-        role,
-        content: response,
-        timestamp: Date.now(),
-      };
-    } catch (error) {
-      console.error(`Error continuing with ${role}:`, error);
-      message = {
-        id: Date.now().toString(),
-        role,
-        content: '抱歉，我暂时无法继续。',
-        timestamp: Date.now(),
-      };
+    // 如果有预生成的回复，直接使用（优化：避免重复API调用）
+    if (preGeneratedResponse) {
+      message = preGeneratedResponse;
+    } else {
+      // 否则生成新的回复
+      const roleName = role === 'artifact' ? '文物本身' : role === 'author' ? '文物的作者' : '导览员';
+      const continuePrompt = `请以${roleName}的身份，基于刚才的对话自然地补充你的观点或信息。记住：用中文回复，保持简洁（50-100字），要自然真实，像在群聊中讨论一样。`;
+
+      try {
+        const response = await this.aiService.chatAsRole(
+          role,
+          continuePrompt,
+          history,
+          artifactContext,
+          rolePrompt,
+          model,
+          userInfo // 传递用户信息
+        );
+
+        message = {
+          id: Date.now().toString(),
+          role,
+          content: response,
+          timestamp: Date.now(),
+        };
+      } catch (error) {
+        console.error(`Error continuing with ${role}:`, error);
+        message = {
+          id: Date.now().toString(),
+          role,
+          content: '抱歉，我暂时无法继续。',
+          timestamp: Date.now(),
+        };
+      }
     }
 
     // 检查是否还有更多角色需要回复
@@ -296,7 +307,8 @@ ${conversationContext}
       updatedHistory,
       artifactContext,
       model,
-      apiKey
+      apiKey,
+      userInfo
     );
 
     return {

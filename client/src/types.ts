@@ -24,5 +24,20 @@ export interface AppConfig {
   model: string;
   artifactContext: string;
   prompts: Prompts;
+  mode?: 'normal' | 'debug'; // 模式：普通模式或调试模式
+}
+
+export interface PromptAdjustment {
+  role: 'artifact' | 'author' | 'guide';
+  userRequest: string; // 用户的调整要求
+  oldPrompt: string; // 调整前的prompt
+  newPrompt: string; // 调整后的prompt
+  timestamp: number;
+}
+
+export interface DebugSession {
+  artifactContext: string;
+  adjustments: PromptAdjustment[];
+  finalPrompts: Prompts;
 }
 

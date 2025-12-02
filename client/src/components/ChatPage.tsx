@@ -7,7 +7,23 @@ interface ChatPageProps {
   onBack: () => void;
 }
 
+interface UserInfo {
+  name?: string;
+  preferences?: string[];
+  [key: string]: any;
+}
+
 export const ChatPage: React.FC<ChatPageProps> = ({ config, onBack }) => {
+  // 从localStorage加载用户信息
+  const loadUserInfo = (): UserInfo => {
+    try {
+      const saved = localStorage.getItem('museum_userInfo');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  };
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
@@ -25,7 +41,35 @@ export const ChatPage: React.FC<ChatPageProps> = ({ config, onBack }) => {
   const [allSelectedRoles, setAllSelectedRoles] = useState<string[]>([]);
   const [currentRoleIndex, setCurrentRoleIndex] = useState<number>(0);
   const [preGeneratedResponses, setPreGeneratedResponses] = useState<Record<string, Message>>({});
+  const [userInfo, setUserInfo] = useState<UserInfo>(loadUserInfo());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 从消息中提取用户信息（名字等）
+  const extractUserInfo = (message: string, currentInfo: UserInfo): UserInfo => {
+    const updatedInfo = { ...currentInfo };
+    
+    // 提取名字的模式
+    const namePatterns = [
+      /(?:我|我的)?(?:名字|姓名|叫)(?:是|叫|为)?[：:，,，]?([^\s，,。！!？?]{2,10})/,
+      /(?:我|我的)?(?:名字|姓名|叫)(?:是|叫|为)?([^\s，,。！!？?]{2,10})/,
+      /(?:叫我|称呼我)([^\s，,。！!？?]{2,10})/,
+      /(?:我是)([^\s，,。！!？?]{2,10})/,
+    ];
+
+    for (const pattern of namePatterns) {
+      const match = message.match(pattern);
+      if (match && match[1]) {
+        const name = match[1].trim();
+        // 过滤掉一些常见的非名字词汇
+        if (!['用户', '游客', '参观者', '你', '您'].includes(name)) {
+          updatedInfo.name = name;
+          break;
+        }
+      }
+    }
+
+    return updatedInfo;
+  };
 
   useEffect(() => {
     scrollToBottom();
@@ -90,6 +134,14 @@ export const ChatPage: React.FC<ChatPageProps> = ({ config, onBack }) => {
       timestamp: Date.now(),
     };
 
+    // 提取用户信息（如名字）
+    const updatedUserInfo = extractUserInfo(input, userInfo);
+    if (updatedUserInfo.name !== userInfo.name) {
+      setUserInfo(updatedUserInfo);
+      // 保存到localStorage
+      localStorage.setItem('museum_userInfo', JSON.stringify(updatedUserInfo));
+    }
+
     // 先添加用户消息到界面
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
@@ -107,7 +159,8 @@ export const ChatPage: React.FC<ChatPageProps> = ({ config, onBack }) => {
         config.artifactContext,
         config.apiKey,
         config.model,
-        config.prompts
+        config.prompts,
+        updatedUserInfo // 传递用户信息
       );
 
       // 合并用户消息和AI回复
@@ -128,6 +181,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ config, onBack }) => {
           }
         } else {
           // 如果没有返回，从响应中推断
+          const newAIMessages = response.messages.slice(messages.length);
           const firstRole = newAIMessages[0]?.role;
           if (firstRole && ['artifact', 'author', 'guide'].includes(firstRole)) {
             setAllSelectedRoles([firstRole, response.nextRole]);
@@ -255,7 +309,9 @@ export const ChatPage: React.FC<ChatPageProps> = ({ config, onBack }) => {
         config.model,
         config.apiKey,
         allSelectedRoles.length > 0 ? allSelectedRoles : undefined,
-        newRoleIndex
+        newRoleIndex,
+        undefined, // preGeneratedResponse
+        userInfo // 传递用户信息
       );
 
       setMessages((prev) => [...prev, response.message]);

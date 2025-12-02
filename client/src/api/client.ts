@@ -10,7 +10,8 @@ export const apiClient = {
     artifactContext: string,
     apiKey: string,
     model: string,
-    prompts: Prompts
+    prompts: Prompts,
+    userInfo?: { name?: string; [key: string]: any }
   ) {
     const response = await axios.post(`${API_BASE_URL}/chat/message`, {
       message,
@@ -19,6 +20,7 @@ export const apiClient = {
       apiKey,
       model,
       prompts,
+      userInfo,
     });
     return response.data;
   },
@@ -32,7 +34,8 @@ export const apiClient = {
     apiKey: string,
     allSelectedRoles?: string[],
     currentRoleIndex?: number,
-    preGeneratedResponse?: Message
+    preGeneratedResponse?: Message,
+    userInfo?: { name?: string; [key: string]: any }
   ) {
     const response = await axios.post(`${API_BASE_URL}/chat/continue`, {
       role,
@@ -44,6 +47,7 @@ export const apiClient = {
       allSelectedRoles,
       currentRoleIndex,
       preGeneratedResponse,
+      userInfo,
     });
     return response.data;
   },
@@ -71,6 +75,46 @@ export const apiClient = {
       apiKey,
     });
     return response.data;
+  },
+
+  async adjustPrompt(
+    role: 'artifact' | 'author' | 'guide',
+    currentPrompt: string,
+    userRequest: string,
+    artifactContext: string,
+    model: string,
+    apiKey: string
+  ) {
+    const response = await axios.post(`${API_BASE_URL}/chat/adjust-prompt`, {
+      role,
+      currentPrompt,
+      userRequest,
+      artifactContext,
+      model,
+      apiKey,
+    });
+    return response.data;
+  },
+
+  async chatWithRole(
+    role: 'artifact' | 'author' | 'guide',
+    message: string,
+    history: Message[],
+    artifactContext: string,
+    rolePrompt: string,
+    model: string,
+    apiKey: string
+  ) {
+    const response = await axios.post(`${API_BASE_URL}/chat/chat-with-role`, {
+      role,
+      message,
+      history,
+      artifactContext,
+      rolePrompt,
+      model,
+      apiKey,
+    });
+    return response.data.response;
   },
 };
 

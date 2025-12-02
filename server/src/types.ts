@@ -5,6 +5,12 @@ export interface Message {
   timestamp: number;
 }
 
+export interface UserInfo {
+  name?: string;
+  preferences?: string[];
+  [key: string]: any;
+}
+
 export interface ChatRequest {
   message: string;
   history: Message[];
@@ -17,6 +23,7 @@ export interface ChatRequest {
     guide: string;
     manager: string;
   };
+  userInfo?: UserInfo; // 用户信息（名字等）
 }
 
 export interface ChatResponse {
