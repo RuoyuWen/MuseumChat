@@ -30,25 +30,69 @@ export const PromptDebugPage: React.FC<PromptDebugPageProps> = ({ config, onBack
     author: '',
     guide: '',
   });
+  // 存储每个角色的聊天记录
+  const [chatHistories, setChatHistories] = useState<Record<Role, Message[]>>({
+    artifact: [],
+    author: [],
+    guide: [],
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevRoleIndexRef = useRef<number>(-1);
+  const messagesRef = useRef<Message[]>([]);
+  const chatHistoriesRef = useRef<Record<Role, Message[]>>({
+    artifact: [],
+    author: [],
+    guide: [],
+  });
 
   const currentRole = ROLE_ORDER[currentRoleIndex];
   const isLastRole = currentRoleIndex === ROLE_ORDER.length - 1;
 
+  // 同步messages和chatHistories到ref，以便在切换角色时访问最新值
   useEffect(() => {
-    // 初始化当前角色的prompt
+    messagesRef.current = messages;
+  }, [messages]);
+
+  useEffect(() => {
+    chatHistoriesRef.current = chatHistories;
+  }, [chatHistories]);
+
+  useEffect(() => {
+    // 当角色切换时，先保存上一个角色的聊天记录
+    if (prevRoleIndexRef.current >= 0 && prevRoleIndexRef.current !== currentRoleIndex) {
+      const prevRole = ROLE_ORDER[prevRoleIndexRef.current];
+      const prevMessages = messagesRef.current;
+      if (prevMessages.length > 0) {
+        setChatHistories(prev => ({
+          ...prev,
+          [prevRole]: prevMessages,
+        }));
+      }
+    }
+
+    // 初始化当前角色的prompt和聊天记录
     if (config.prompts && currentRole) {
       setCurrentPrompt(config.prompts[currentRole]);
-      setMessages([
-        {
-          id: 'welcome',
-          role: 'system',
-          content: `开始与${ROLE_NAMES[currentRole]}对话。你可以在左侧调整prompt，在右侧进行对话测试。`,
-          timestamp: Date.now(),
-        },
-      ]);
+      
+      // 检查该角色是否已有聊天记录
+      const existingHistory = chatHistoriesRef.current[currentRole];
+      if (existingHistory.length > 0) {
+        setMessages(existingHistory);
+      } else {
+        setMessages([
+          {
+            id: 'welcome',
+            role: 'system',
+            content: `开始与${ROLE_NAMES[currentRole]}对话。你可以在左侧调整prompt，在右侧进行对话测试。`,
+            timestamp: Date.now(),
+          },
+        ]);
+      }
     }
-  }, [currentRoleIndex, config.prompts]);
+
+    // 更新上一个角色索引
+    prevRoleIndexRef.current = currentRoleIndex;
+  }, [currentRoleIndex, config.prompts, currentRole]);
 
   useEffect(() => {
     scrollToBottom();
@@ -142,22 +186,34 @@ export const PromptDebugPage: React.FC<PromptDebugPageProps> = ({ config, onBack
   };
 
   const handleComplete = () => {
-    // 保存当前角色的最终prompt
+    // 保存当前角色的最终prompt和聊天记录
     const updatedFinalPrompts = { ...finalPrompts };
     updatedFinalPrompts[currentRole] = currentPrompt;
     setFinalPrompts(updatedFinalPrompts);
 
+    // 保存当前角色的聊天记录
+    const updatedChatHistories = { ...chatHistories };
+    updatedChatHistories[currentRole] = messages;
+    setChatHistories(updatedChatHistories);
+
     if (isLastRole) {
       // 完成所有角色，生成文档并下载
-      generateAndDownloadDocument(updatedFinalPrompts);
+      generateAndDownloadDocument(updatedFinalPrompts, updatedChatHistories);
     } else {
       // 进入下一个角色
       setCurrentRoleIndex(currentRoleIndex + 1);
     }
   };
 
-  const generateAndDownloadDocument = (prompts: Record<Role, string>) => {
-    const content = `# Prompt调试文档
+  const generateAndDownloadDocument = (
+    prompts: Record<Role, string>,
+    chatHistories: Record<Role, Message[]>
+  ) => {
+    const timestamp = Date.now();
+    const dateStr = new Date().toISOString();
+
+    // 1. 生成Prompt调试文档
+    const promptContent = `# Prompt调试文档
 
 ## 文物信息
 ${config.artifactContext}
@@ -191,24 +247,78 @@ ${prompts.author}
 ${prompts.guide}
 
 ---
-生成时间: ${new Date().toISOString()}
+生成时间: ${dateStr}
 `;
 
-    // 创建并下载文件
-    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `prompt-debug-${Date.now()}.md`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    // 2. 生成聊天记录文档
+    const chatContent = `# 调试模式聊天记录
 
-    // 返回首页
+## 文物信息
+${config.artifactContext}
+
+## 对话记录
+
+${ROLE_ORDER.map((role) => {
+      const history = chatHistories[role];
+      if (!history || history.length === 0) {
+        return `### ${ROLE_NAMES[role]}\n\n*暂无对话记录*\n\n---\n`;
+      }
+
+      // 过滤掉纯系统消息，保留欢迎消息和所有用户/AI对话
+      const conversationMessages = history.filter(
+        (msg) => msg.role !== 'system' || msg.content.includes('开始与') || msg.content.includes('错误')
+      );
+
+      if (conversationMessages.length === 0) {
+        return `### ${ROLE_NAMES[role]}\n\n*暂无对话记录*\n\n---\n`;
+      }
+
+      return `### ${ROLE_NAMES[role]}
+
+${conversationMessages.map((msg) => {
+        if (msg.role === 'system') {
+          return `**系统提示：** ${msg.content}\n\n`;
+        }
+        const roleName = msg.role === 'user' ? '👤 用户' : `🤖 ${ROLE_NAMES[msg.role as Role]}`;
+        const timeStr = new Date(msg.timestamp).toLocaleString('zh-CN');
+        return `${roleName} (${timeStr})\n${msg.content}\n\n`;
+      }).join('')}
+
+---
+`;
+    }).join('\n')}
+
+生成时间: ${dateStr}
+`;
+
+    // 下载Prompt调试文档
+    const promptBlob = new Blob([promptContent], { type: 'text/markdown;charset=utf-8' });
+    const promptUrl = URL.createObjectURL(promptBlob);
+    const promptLink = document.createElement('a');
+    promptLink.href = promptUrl;
+    promptLink.download = `prompt-debug-${timestamp}.md`;
+    document.body.appendChild(promptLink);
+    promptLink.click();
+    document.body.removeChild(promptLink);
+    URL.revokeObjectURL(promptUrl);
+
+    // 延迟一下再下载聊天记录文档，避免浏览器阻止多个下载
     setTimeout(() => {
-      onBack();
-    }, 1000);
+      const chatBlob = new Blob([chatContent], { type: 'text/markdown;charset=utf-8' });
+      const chatUrl = URL.createObjectURL(chatBlob);
+      const chatLink = document.createElement('a');
+      chatLink.href = chatUrl;
+      chatLink.download = `chat-history-${timestamp}.md`;
+      document.body.appendChild(chatLink);
+      chatLink.click();
+      document.body.removeChild(chatLink);
+      URL.revokeObjectURL(chatUrl);
+
+      // 返回首页
+      setTimeout(() => {
+        onBack();
+      }, 500);
+    }, 500);
   };
 
   return (
