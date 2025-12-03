@@ -1,0 +1,46 @@
+========================================
+  Museum Guide System - Quick Start Guide
+========================================
+
+📌 Easiest Way (Windows Users)
+
+1️⃣  First Time Setup:
+    Double-click "install.bat"
+    (Only needed once, can skip afterwards)
+
+2️⃣  Start System:
+    Double-click "start.bat"
+    - Browser will open automatically
+    - Frontend: http://localhost:5173
+    - Backend: http://localhost:3000
+
+3️⃣  Use System:
+    - Enter your OpenAI API Key in the browser
+    - Select AI model
+    - Enter artifact historical background
+    - Click "Start Tour" to begin conversation
+
+4️⃣  Stop System:
+    - Double-click "stop.bat"
+    or
+    - Press Ctrl+C in the startup window
+
+========================================
+  Troubleshooting
+========================================
+
+Q: "npm is not recognized as an internal or external command"?
+A: Please install Node.js (version 18+)
+   Download: https://nodejs.org/
+
+Q: Port already in use?
+A: Run "stop.bat" first, then start again
+
+Q: Browser didn't open automatically?
+A: Manually visit http://localhost:5173
+
+Q: API call failed?
+A: Check if API Key is correct and has sufficient balance
+
+========================================
+

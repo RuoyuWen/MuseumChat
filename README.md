@@ -19,17 +19,17 @@
 
 ## 快速开始
 
-### 🚀 一键启动（Windows用户推荐）
+### 🚀 One-Click Start (Recommended for Windows Users)
 
-**最简单的方式 - 双击即可使用！**
+**Easiest way - Just double-click to use!**
 
-1. **首次使用**：双击 `安装依赖.bat` 安装所有依赖（只需一次）
-2. **启动系统**：双击 `启动.bat` 即可启动系统
-   - 会自动检测并安装缺失的依赖
-   - 启动后会自动打开浏览器
-   - 前端地址: http://localhost:5173
-   - 后端地址: http://localhost:3000
-3. **停止系统**：双击 `停止服务器.bat` 或按 `Ctrl+C`
+1. **First time setup**: Double-click `install.bat` to install all dependencies (only once)
+2. **Start system**: Double-click `start.bat` to start the system
+   - Automatically detects and installs missing dependencies
+   - Browser will open automatically after startup
+   - Frontend: http://localhost:5173
+   - Backend: http://localhost:3000
+3. **Stop system**: Double-click `stop.bat` or press `Ctrl+C`
 
 ### 命令行方式
 
